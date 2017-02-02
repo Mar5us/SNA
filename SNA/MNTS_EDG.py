@@ -1,8 +1,13 @@
 '''
-@author: Marcus Kesper
+@author: Marcus Kesper, marcus.kesper@bluewin.ch, 
+FFHS Fernfachhochschule Schweiz
 
-Version 0.53 25.11.2012
+Version 1.0 31.01.2013
 
+Python-Programm zur Bachelor-Thesis im Studiengang Informatik
+Social Network Analysis
+Cliquenanalyse unter Beruecksichtigung von Intensitaet und Gegenseitigkeit der 
+Kommunikation
 '''
 
 import csv #standard module
@@ -26,7 +31,7 @@ def read_DIMACS_graph(filename):
     '''
     myArr = np.int_([[]])
     try:
-        if len(filename)>3 and filename[-3:] == ".gz":  # file compressed with gzip
+        if len(filename) > 3 and filename[-3:] == ".gz":  # file compressed with gzip
             import gzip
             f = gzip.open(filename, "rb")
         else:   # usual, uncompressed file
@@ -38,7 +43,7 @@ def read_DIMACS_graph(filename):
     for line in f:
         if line[0] == 'e':
             e, i, j = line.split()
-            i,j = int(i)-1, int(j)-1 # -1 for having nodes index starting on 0
+            i, j = int(i) - 1, int(j) - 1 # -1 for having nodes index starting on 0
             myArr[i][j] = 1
         elif line[0] == 'c':
             continue
@@ -47,6 +52,9 @@ def read_DIMACS_graph(filename):
             # assert name == 'clq'
             n, nedges = int(n), int(nedges)
             myArr = np.int_([[0] * n for i in range(n)])
+        else:
+            print "the file", filename,"is not in DIMACS format"
+            exit(-1)
     f.close()
     return myArr
 
@@ -58,61 +66,49 @@ def initialize(size):
 
 # Funktion: Fuellt ein Array einer bestimmten Dichte mit Zufallswerten
 # Rueckgabewert: Das gefuellte Array
-def fillRandom(myArr, density):
-    nrOfActors = myArr.shape[0]
-    for i in range(0, nrOfActors):
-        for j in range(0, nrOfActors):
-            if (i <> j):
-                randVal1 = random.randint(0, 1000)
-                randVal2 = random.randint(1, 100)
-                if (randVal1 <= (1000 * density)): 
-                    myArr[i][j] = randVal2
-                else:
-                    myArr[i][j] = 0
-            else:
-                myArr[i][j] = 0
-    return myArr
-
-# Funktion: Fuellt ein Array einer bestimmten Dichte mit Zufallswerten
-# Rueckgabewert: Das gefuellte Array
 def fillRandomAdv(myArr, density):
     nrOfActors = myArr.shape[0]
-    nrofEdgesPerVertex = float((nrOfActors-1)*density)
+    nrofEdgesPerVertex = float((nrOfActors - 1) * density)
     randVal1 = random.randint(80, 100)
-    iMax = int(nrOfActors/100*randVal1)
+    iMax = int(nrOfActors / 100 * randVal1)
     i = 0
-    for acteur in randrange(0, nrOfActors-1):
+    for acteur in randrange(0, nrOfActors - 1):
         i = i + 1
         if (i > iMax):
             break  
-        nrofEdgesPerVertexRandom = random.randint(int(nrofEdgesPerVertex-nrofEdgesPerVertex/5), int(nrofEdgesPerVertex+nrofEdgesPerVertex/5))
-        for contacts in range(int(nrofEdgesPerVertexRandom/2)):
+        nrofEdgesPerVertexRandom = random.randint(int(nrofEdgesPerVertex - nrofEdgesPerVertex / 5), int(nrofEdgesPerVertex + nrofEdgesPerVertex / 5))
+        for contacts in range(int(nrofEdgesPerVertexRandom / 2)):
             randVal2 = random.randint(0, 100)
             randVal3 = random.randint(0, 100)
-            randAkt = random.randint(0, nrOfActors-1)
+            randAkt = random.randint(0, nrOfActors - 1)
             myArr[acteur][randAkt] = randVal2
             myArr[randAkt][acteur] = randVal3
     return myArr
-        
 
 # Funktion: Gibt ein Array auf die Konsole aus
+# nur fuer Tests, wird sonst nicht benutzt
 def showArray(myArr):
     nrOfActors = myArr.shape[0]
     for i in range(nrOfActors):
-        print i,': ',
+        print i, ': ',
         for j in range(nrOfActors):
             print myArr[i][j],
         print ''
 
-# Funktion: Testet, ob die Netzwerkgroesse im richtigen Bereich liegt
+# Funktion: Testet, ob die Netzwerkgroesse in einem Bereich liegt, der
+# verarbeitet werden kann
 # Rueckgabewert: True oder False
 def sizeOk(myArr):
-    return ((myArr.shape[0] >= 10) and (myArr.shape[0] <= 20000))
+    return ((myArr.shape[0] >= 10) and (myArr.shape[0] <= 22000))
 
 # Funktion: Liest ein Array von einem CSV-File
 # Rueckgabewert: Das eingelesene Array mit dem Filenamen filename
 def readFile(filename):
-    newArr = np.genfromtxt(filename, delimiter=';', dtype=int)
+    try:
+        newArr = np.genfromtxt(filename, delimiter=';', dtype=int)
+    except IOError:
+        print "could not open file", filename
+        exit(-1) 
     return newArr
 
 # Funktion: Schreibt ein Array in ein CSV-File
@@ -132,7 +128,7 @@ def mirror(myArr):
             myArr[j][i] = myArr[i][j]
     return myArr
 
-# Funktion: Kreiert einen gerichteten und kantengewichteten Graphen mit 4 bis 8 Cliquen 
+# Funktion: Kreiert einen gerichteten und kantengewichteten Graphen mit Cliquen 
 # unterschiedlicher Laenge
 # Rueckgabewert: Ein Graph als zweidimensionales Array der Groesse size
 def createSampleEDG(size):
@@ -142,7 +138,7 @@ def createSampleEDG(size):
         density = 0.05
     if ((size > 100) and (size <= 10000)):
         density = 0.01
-    if ((size >10000) and (size <= 20000)):
+    if ((size > 10000) and (size <= 20000)):
         density = 0.005
     if (size > 20000):
         density = 0.001
@@ -153,9 +149,9 @@ def createSampleEDG(size):
         if (size <= 100):
             clqlength = 4
         else:
-            clqlength = random.randint(4, size/400+10) 
+            clqlength = random.randint(4, size / 400 + 10) 
         while (clq.__len__() < clqlength):
-            member = random.randint(0, size-1)
+            member = random.randint(0, size - 1)
             if (not clq.__contains__(member)):
                 clq.append(member)
         for acteurX in range(clq.__len__()):
@@ -163,13 +159,13 @@ def createSampleEDG(size):
                 if ((acteurX == acteurY) or (randEDG[clq[acteurX]][clq[acteurY]] > 19)):
                     continue
                 else:
-                    randEDG[clq[acteurX]][clq[acteurY]] = random.randint(20,90)
+                    randEDG[clq[acteurX]][clq[acteurY]] = random.randint(20, 90)
         clq.sort(cmp=None, key=None, reverse=False)
         clqs.append((clq, weightOfClique(randEDG, clq)))
     clqs.sort(cmp=None, key=lambda x: x[1], reverse=True)
     print 'created cliques: '
     for clique in range(clqs.__len__()):
-        print clique+1, ': ', clqs[clique], clqs[clique][0].__len__()
+        print clique + 1, ': ', clqs[clique], clqs[clique][0].__len__()
     return randEDG, clqs
 
 # Funktion: Berechnet den degree-basierten Zentralitaetswert aller Akteure einer Clique. 
@@ -193,11 +189,11 @@ def calcCentrality(myArr):
             # Ein Wert von Null bedeutet, dass der Akteur
             # mit keinem anderen Akteur bidirektional verbunden ist
     actSortByCent = sorted(degree, key=lambda x: x[1], reverse=True)
-    #print 'Centrality: ', actSortByCent
     print 'Number of acteurs with centrality > 0: ', actSortByCent.__len__()
     return actSortByCent
 
 # Funktion: berechnet die Dichte eines Graphen
+# die Angabe ist rein informativ, wird sonst nicht benutzt
 # Rueckgabewert: Die Dichte des Graphen myArr
 def calcDensity(myArr):
     nrOfActors = myArr.shape[0]
@@ -206,7 +202,7 @@ def calcDensity(myArr):
         for j in range(nrOfActors):
             if (myArr[i][j] > 0):
                 nrOfEdges = nrOfEdges + 1
-    density = round(float(nrOfEdges)/(nrOfActors*(nrOfActors-1)), 4)
+    density = round(float(nrOfEdges) / (nrOfActors * (nrOfActors - 1)), 4)
     return density
 
 # Funktion: Verarbeitet eine Liste von Elementen in zufaelliger Reihenfolge
@@ -225,18 +221,15 @@ def initialClique(myArr, myActSortByCent, iterations, iterMax):
     nrOfCActors = myActSortByCent.__len__()
     nrOfActors = myArr.shape[0]
     randClique = []
-    mult = (float(iterations)/float(iterMax))**2 #ergibt eine nichtlineare Kurve
-    #Der Range der moeglichen Kandidaten fuer die Startclique vergroessert sich mit der Zeit
-    actToCheck = int((float(nrOfCActors))/100*(mult*99+1))+1
-    #logging.info('INITIAL CLIQUE actToCheck: %s %s', actToCheck, iterations)
-    startActeur = random.randint(0, actToCheck-1)
+    mult = (float(iterations) / float(iterMax)) ** 2 # ergibt eine nichtlineare Kurve
+    # Der Range der moeglichen Kandidaten fuer die Startclique vergroessert sich mit der Zeit
+    actToCheck = int((float(nrOfCActors)) / 100 * (mult * 99 + 1)) + 1
+    startActeur = random.randint(0, actToCheck - 1)
     a, b = myActSortByCent[startActeur]
-    #logging.info('INITIAL CLIQUE startActeur: %s', a)
-    #logging.info('INITIAL CLIQUE value: %s', b)
-    #Der erste Akteur der Startclique soll einer mit einem moeglichst hohen Centrality-Wert sein
+    # Der erste Akteur der Startclique soll einer mit einem moeglichst hohen Centrality-Wert sein
     randClique.append(a)
     
-    for acteur in randrange(0, nrOfActors-1):
+    for acteur in randrange(0, nrOfActors - 1):
         if (randClique.__len__() == 0):
             randClique.append(acteur)
         else:
@@ -252,22 +245,20 @@ def initialClique(myArr, myActSortByCent, iterations, iterMax):
                     flag = 1
             if (flag == 1):
                 randClique.append(acteur)
-    #logging.info('INITIAL CLIQUE randClique: %s', randClique)     
     return randClique
 
 # Funktion: Berechnet die beiden Nachbarschaften ADD und SWAP und gibt die am 
-# hoechsten bewerteten Cliquen sowie die neue Tabu-Liste zurueck
+# hoechsten bewerteten Cliquen sowie die Kandidaten fuer die Tabu-Listen zurueck
 # Rueckgabewerte: 
-#     bestCliqueAddCand, bestCliqueSwapCand: Jeweils der an besten geeignete Kandidat der beiden
+#     bestCliqueAddCand, bestCliqueSwapCand: Jeweils der am besten geeignete Kandidat der beiden
 #         Nachbarschaften
-#     tabuADDCand, tabuSWAPCand, tabuSWAPADDCand: Die Kandidaten fuer die neue Tabu-Liste
+#     tabuADDCand, tabuSWAPCand, tabuSWAPADDCand: Die Kandidaten fuer die neuen Tabu-Listen
 #     swapCandidates.__len__(): Die Anzahl der SWAP-Kandidaten. Wichtig, weil die Laenge der
 #         Tabu-Liste dynamisch ist
 def neighborhoodAddSwap(myArr, myClique, myActSortByCent, tabuDROPList, tabuSWAPList, iterations, iterMax):
     bestCliqueAddCand = myClique[:]
     bestCliqueSwapCand = myClique[:]
     nrOfActorsPos = myActSortByCent.__len__()
-    #logging.info('ADD SWAO nrOfActorsPos: %s', nrOfActorsPos)
     cliqueSize = myClique.__len__()
     tabuADDCand = -1
     tabuSWAPCand = -1
@@ -275,14 +266,12 @@ def neighborhoodAddSwap(myArr, myClique, myActSortByCent, tabuDROPList, tabuSWAP
     swapCandDict = {}
     addCandidates = []
     swapCandidates = []
-    mult = ((float(iterations)/float(iterMax))**3)+0.4 #ergibt eine nichtlineare Kurve
+    mult = ((float(iterations) / float(iterMax)) ** 3) + 0.4 #ergibt eine nichtlineare Kurve
     if (mult > 1):
         mult = 1
-    actToCheck = int((float(nrOfActorsPos))/100*(mult*99+1))
-    #logging.info('ADD SWAP actToCheck: %s %s',actToCheck, iterations)
+    actToCheck = int((float(nrOfActorsPos)) / 100 * (mult * 99 + 1))
     for acteurPos in range(0, actToCheck):
         acteur, deg = myActSortByCent[acteurPos]
-        #logging.info('ADD SWAP acteur: %s', acteur)
         noConn = 0
         conn = 0
         if ((myClique.__contains__(acteur)) or (tabuDROPList.__contains__(acteur)) or (tabuSWAPList.__contains__(acteur))):
@@ -346,14 +335,18 @@ def neighborhoodAddSwap(myArr, myClique, myActSortByCent, tabuDROPList, tabuSWAP
     
     return bestCliqueAddCand, bestCliqueSwapCand, tabuADDCand, tabuSWAPCand, tabuSWAPADDCand, swapCandidates.__len__()
 
-# berechnet die Nachbarschaft DROP: Sucht denjenigen Kandidaten, welcher mit dem geringsten Verlust entfernt werden kann
+# Funktion: berechnet die Nachbarschaft DROP: Sucht denjenigen Kandidaten, welcher 
+# mit dem geringsten Verlust entfernt werden kann
+# Rueckgabewerte: 
+#     bestCliqueDropCand: Der an besten geeignete Kandidat 
+#     tabuCand: Der Kandidat fuer die neue Tabu-Liste
 def neighborhoodDrop(myArr, myClique, tabuADDList):
     tabuCand = -1
     candDrop = -1
     bestCliqueDropCand = myClique[:]
     if (myClique.__len__() > 2):
         minNegSum = weightOfClique(myArr, bestCliqueDropCand)
-        for testCand in randrange(0, bestCliqueDropCand.__len__()-1):
+        for testCand in randrange(0, bestCliqueDropCand.__len__() - 1):
             negSum = 0
             if (not (tabuADDList.__contains__(bestCliqueDropCand[testCand]))):
                 for testCandCompare in range(bestCliqueDropCand.__len__()):
@@ -372,9 +365,9 @@ def neighborhoodDrop(myArr, myClique, tabuADDList):
         bestCliqueDropCand = []
     return bestCliqueDropCand, tabuCand
 
-# die Funktion fuer die Berechnung einer Clique; setzt sich zusammen aus der Laenge und der Summe der Kantengewichte 
-# zwischen den Mitgliedern der Clique 
-# die Gegenseitigkeit ist noch nicht explizit beruecksichtigt (14.10.2012)
+# Funktion: Die Berechnung des Wertes einer Clique; setzt sich zusammen aus der Laenge 
+# und der Summe der Kantengewichte zwischen den Mitgliedern der Clique 
+# Rueckgabewert: Der Wert der Clique
 def weightOfClique(myArr, myClique):
     cliqueValue = 0
     if (myClique.__len__() > 0):
@@ -389,7 +382,8 @@ def weightOfClique(myArr, myClique):
         weight = 0
     return weight
 
-# prueft, ob eine Clique als Sub-Clique einer Liste von Cliquen vorkommt
+# Funktion: prueft, ob eine Clique als Sub-Clique einer Liste von Cliquen vorkommt
+# Rueckgabewert: False, wenn die Clique keine Sub-Clique ist
 def subClq(bestClqCand, bestCliques):
     clqCand = bestClqCand[0]
     for clqs in range(bestCliques.__len__()):
@@ -403,34 +397,30 @@ def subClq(bestClqCand, bestCliques):
                 break
         if (noSubClique == 0):
             return True
-
     return False
 
-# der eigentliche MN/TS for EDG Algorithmus
+# Funktion: Der neue MN/TS for EDG Algorithmus
+# Rueckgabewert: Eine Menge von Cliquen
 def MultiTabuSearch(myArr, iterMax, searchDepth, nrOfCliques):
     tabuADDlength = 2
     tabuDROPlength = 7
     iterations = 0
-    steps = int(iterMax/10)
+    if (iterMax > 9):
+        steps = int(iterMax / 10)
+    else:
+        steps = 1
     maxClique = np.int_([])
     bestCliques = []
     print '...sorting acteurs by centrality (can take some minutes)...'
     time12 = time.clock()
     myActSortByCent = calcCentrality(myArr)
     time13 = time.clock()
-    tt = time13-time12
-    print 'time to sort ', myActSortByCent.__len__(),' acteurs by centrality: ', tt
-    #logging.info('MSTN myActSortByCent: %s', myActSortByCent)
+    tt = time13 - time12
+    print 'time to sort', myActSortByCent.__len__(), 'acteurs by centrality: ', tt
     startTime = time.clock()
     print '...start iterations...'
     while (iterations < iterMax):
-        #logging.info('++++ iterations: ++++ %s', iterations)
-        #timeX = time.clock()
-        #time1 = time.clock()
         currentClique = initialClique(myArr, myActSortByCent, iterations, iterMax)
-        #time2 = time.clock()
-        #logging.info('MSTN time for initialClique: %s', time2-time1)
-        #logging.info('MSTN initial clique: %s', currentClique)
         currentClique.sort(cmp=None, key=None, reverse=False)
         tabuADDList = []
         tabuSWAPList = []
@@ -441,159 +431,144 @@ def MultiTabuSearch(myArr, iterMax, searchDepth, nrOfCliques):
         else:
             localBestClique = currentClique[:]
         while (notImproved < searchDepth):
-            #logging.info('MSTN current clique: %s', currentClique)
-            #logging.info('notImproved: %s', notImproved)
-            #logging.info('iterations: %s', iterations)
             bestNeighborClique = []
-            #logging.info('MAIN currentClique: %s', currentClique)  
             # berechnet die Nachbarschaften ADD und SWAP
-            #time1 = time.clock()
             bestAddCliqueCand, bestSwapCliqueCand, tabuADDCand, tabuSWAPCand, tabuSWAPADDCand, nrOfSWAPCand = neighborhoodAddSwap(myArr, currentClique, myActSortByCent, tabuDROPList, tabuSWAPList, iterations, iterMax)
-            #logging.info('MSTN bestAddCliqueCand: %s', bestAddCliqueCand)
-            #logging.info('MSTN bestSwapCliqueCand: %s', bestSwapCliqueCand)
-            #logging.info('MSTN tabuADDCand: %s', tabuADDCand)
-            #logging.info('MSTN tabuSWAPCand: %s', tabuSWAPCand)
-            #logging.info('MSTN tabuSWAPADDCand: %s', tabuSWAPADDCand)
-            #logging.info('MSTN nrOfSWAPCand: %s', nrOfSWAPCand)
-            #time2 = time.clock()
-            #logging.info('MSTN time for bestAddCliqueCand/bestSwapCliqueCand: %s', time2-time1)
             # Nachbarschaft ADD auswaehlen, wenn vorhanden und groesser als SWAP Nachbarschaft
             if ((bestAddCliqueCand.__len__() > 0) and (weightOfClique(myArr, bestAddCliqueCand) > weightOfClique(myArr, bestSwapCliqueCand))): 
                 # Nachbarschaft ADD auswaehlen
                 bestNeighborClique = bestAddCliqueCand[:]
-                #logging.info('*** SELECT ADD ***')
                 # Tabu ADD Liste nachfuehren
                 if (tabuADDList.__len__() >= tabuADDlength):
-                    tabuADDList.pop(0) #mit append und pop(0) wird eine FIFO Liste implementiert
+                    tabuADDList.pop(0) # mit append und pop(0) wird eine FIFO Liste implementiert
                 tabuADDList.append(tabuADDCand)
-                #logging.info('tabuADDList: %s', tabuADDList)
             else:
                 # berechnet die Nachbarschaft DROP und vergleicht sie mit der SWAP Nachbarschaft
-                #time1 = time.clock()
                 bestDropCliqueCand, tabuDropCand = neighborhoodDrop(myArr, currentClique, tabuADDList)
-                #logging.info('MSTN bestDropCliqueCand: %s', bestDropCliqueCand)
-                #logging.info('MSTN tabuDropCand: %s', tabuDropCand)
-                #time2 = time.clock()
-                #logging.info('MSTN time for bestDropCliqueCand: %s', time2-time1)
                 if (weightOfClique(myArr, bestDropCliqueCand) > weightOfClique(myArr, bestSwapCliqueCand)):
                     # Nachbarschaft DROP auswaehlen
                     bestNeighborClique = bestDropCliqueCand[:]
-                    #logging.info('*** SELECT DROP ***')
                     # Tabu DROP Liste nachfuehren
                     if (tabuDROPList.__len__() >= tabuDROPlength):
-                        tabuDROPList.pop(0) #mit append und pop(0) wird eine FIFO Liste implementiert
+                        tabuDROPList.pop(0) # mit append und pop(0) wird eine FIFO Liste implementiert
                     tabuDROPList.append(tabuDropCand)
-                    #logging.info('tabuDROPList: %s', tabuDROPList)
                 else:
                     if (bestSwapCliqueCand.__len__() > 0):
                         # Nachbarschaft SWAP auswaehlen
                         bestNeighborClique = bestSwapCliqueCand[:]
-                        #logging.info('*** SELECT SWAP ***')
                         # Tabu SWAP Liste nachfuehren
-                        #logging.info('MAIN nrOfSWAPCand: %s', nrOfSWAPCand)  
                         tabuSWAPListlength = random.randint(1, nrOfSWAPCand) + 7
-                        #logging.info('MAIN tabuSWAPListlength: %s', tabuSWAPListlength)
                         while (tabuSWAPList.__len__() > tabuSWAPListlength):
-                            tabuSWAPList.pop(0) #mit append und pop(0) wird eine FIFO Liste implementiert
+                            tabuSWAPList.pop(0) # mit append und pop(0) wird eine FIFO Liste implementiert
                         # Tabu ADD Liste nachfuehren
                         if (tabuADDList.__len__() >= tabuADDlength):
-                            tabuADDList.pop(0) #mit append und pop(0) wird eine FIFO Liste implementiert
+                            tabuADDList.pop(0) # mit append und pop(0) wird eine FIFO Liste implementiert
                         tabuADDList.append(tabuSWAPADDCand)
-                        #logging.info('tabuADDList: %s', tabuADDList)
                         tabuSWAPList.append(tabuSWAPCand)
-                        #logging.info('tabuSWAPList: %s', tabuSWAPList)
             
             if (bestNeighborClique.__len__() > 0):
                 currentClique = bestNeighborClique[:]
                 currentClique.sort(cmp=None, key=None, reverse=False)
             notImproved = notImproved + 1
             iterations = iterations + 1
-            if ((iterations % steps) == 0):
-                completed = round(float(iterations)/iterMax*100, 0)
+            if ((iterations % steps) == 0 and (iterations <= iterMax)):
+                completed = round(float(iterations) / iterMax * 100, 0)
                 if (completed > 100):
-                    completed = 100
+                    completed = 100.0
                 print completed, '% completed'
-            if (weightOfClique(myArr, currentClique) >  weightOfClique(myArr, localBestClique)):
+            if (weightOfClique(myArr, currentClique) > weightOfClique(myArr, localBestClique)):
                 notImproved = 0
                 localBestClique = currentClique[:]
-            #logging.info('MSTN localBestClique within notimproved: %s', localBestClique)
         if (searchDepth == 0):
             iterations = iterations + 1
-            if ((iterations % steps) == 0):
-                completed = round(float(iterations)/iterMax*100, 0)
+            if ((iterations % steps) == 0 and (iterations <= iterMax)):
+                completed = round(float(iterations) / iterMax * 100, 0)
                 if (completed > 100):
                     completed = 100
                 print completed, '% completed'
         actTime = time.clock()
         passedTime = actTime - startTime
-        #logging.info('MSTN localBestClique: %s', localBestClique)
         if (localBestClique.__len__() > 2):
             bestClqCand = ((localBestClique, weightOfClique(myArr, localBestClique), iterations, passedTime))
-            if ((not bestCliques.__contains__(bestClqCand)) and ((bestCliques.__len__() < (nrOfCliques+1)) or (weightOfClique(myArr, localBestClique) >= weightOfClique(myArr, bestCliques[0])))):
+            if ((not bestCliques.__contains__(bestClqCand)) and ((bestCliques.__len__() < (nrOfCliques + 1)) or (weightOfClique(myArr, localBestClique) >= weightOfClique(myArr, bestCliques[0])))):
                 if (not subClq(bestClqCand, bestCliques)):
                     bestCliques.append(bestClqCand)
-                    #logging.info('MSTN added to list: %s', bestClqCand)
                     bestCliques.sort(cmp=None, key=lambda x: x[1], reverse=False)
-                    #logging.info('MSTN bestCliques: %s', bestCliques)
                     # prueft ob bereits gefundene Cliquen Subcliquen der neuen Clique sind.
-                    #logging.info('MSTN bestCliques.__len__(): %s', bestCliques.__len__())
                     bestCliquesTemp = bestCliques[:]
                     if (bestCliques.__len__() > 1):
-                        for clqs in range(0, bestCliques.__len__()-1):
-                            #logging.info('MSTN clqs: %s', clqs)
+                        for clqs in range(0, bestCliques.__len__() - 1):
                             clq = bestCliques[clqs]
                             if (subClq(clq, bestCliques)):
                                 bestCliquesTemp.remove(clq)
-                    #print 'maxClique: ',localBestClique, 'weight: ', weightOfClique(myArr, localBestClique), 'it: ', iterations, 'time: ', passedTime
-                    #logging.info('MSTN maxClique: %s', localBestClique)
                     bestCliques = bestCliquesTemp[:]
                     if (bestCliques.__len__() > nrOfCliques):
                         bestCliques.pop(0)
         if (weightOfClique(myArr, localBestClique) > weightOfClique(myArr, maxClique)):                
             maxClique = localBestClique[:]
-        #timeY = time.clock()
-        #logging.info('MSTN time per iteration: %s', timeY-timeX)
     return bestCliques
 
-
-parser = optparse.OptionParser()
+parser = optparse.OptionParser(version="%prog 1.0")
 parser.add_option("-f", "--dimacs", dest="dimacsFilename", default="", help="DIMACS file to load", metavar="FILE")
-parser.add_option("-s", "--sample", dest="sampleSize", type="int", default=0, help="creates a sample network of size SAMPLESIZE with cliques - minimum size = 10; maximum size = 20000")
+parser.add_option("-s", "--sample", dest="sampleSize", type="int", default=0, help="creates a sample network of size SAMPLESIZE with cliques - minimum size = 10; maximum size = 22000")
 parser.add_option("-i", "--iterations", dest="iter", type="int", default=0, help="defines the number of iterations")
-parser.add_option("-d", "--depth", dest="depth", type="int", default=-1, help="defines the search depth (0 means no local search)")
+parser.add_option("-d", "--depth", dest="depth", type="int", default= -1, help="defines the search depth (0 means no local search)")
 parser.add_option("-o", "--out", dest="outFilename", default="", help="name of the output file (adjacency matrix) in csv format")
 parser.add_option("-c", "--in", dest="inFilename", default="", help="name of the input file (adjacency matrix) in csv format")
 parser.add_option("-n", "--cliques", dest="nrOfCliques", type="int", default=10, help="number of cliques to find - default is 10")
 (options, args) = parser.parse_args()
 
-
 print 'options: ', options
 print 'args: ', args
 
+# Behandlung Eingabefehler
+# Anzahl zu findender Cliquen kleiner als 1
 if (options.nrOfCliques < 1):
     print "the number of cliques to find must be > 0"
     exit(-1)
-    
-if (options.iter == 0):
+
+# Behandlung Eingabefehler
+# Die Suchtiefe ist groesser als die Anzahl Iterationen
+if (options.depth > options.iter):
+    print "search depth > number of iterations doesn't make sense"
+    exit(-1)    
+
+# Behandlung Eingabefehler
+# Die Anzahl Iterationen fehlt oder ist kleiner als 1    
+if (options.iter < 1):
     print "please specify number of iterations"
     exit(-1)
 else:
     iter = options.iter
-    
+
+# Behandlung Eingabefehler
+# Die Suchtiefe ist kleiner als 0
+# (Suchtiefe = 0 heisst, dass der Local Search Teil des Algorithmus ausgelassen wird)    
 if (options.depth < 0):
     print "please specify the search depth"
     exit(-1)
 else:
     depth = options.depth
 
+# Behandlung Eingabefehler
+# Es soll gleichzeitig ein Netzwerk simuliert und ein File eingelesen werden
 if ((options.sampleSize <> 0) and ((options.dimacsFilename <> "") or (options.inFilename <> ""))):
     print "you can't specify a filename AND create a sample network"
     exit(-1)
 
+# Behandlung Eingabefehler
+# Es soll eine DIMACS- UND eine CSV-Datei eingelesen werden
 if ((options.dimacsFilename <> "") and (options.inFilename <> "")):
     print "you can't specify a dimacs filename AND a csv filename"
     exit(-1)
 
+# Behandlung Eingabefehler
+# Es soll weder ein Netzwerk simuliert noch eine Datei eingelesen werden
+if ((options.dimacsFilename == "") and (options.inFilename == "") and options.sampleSize == 0):
+    print "please specify either a dimacs filename, a csv filename or the size of a sample network"
+    exit(-1)
+
+# Ein Netzwerk soll simuliert und untersucht werden
 if ((options.sampleSize <> 0) and ((options.dimacsFilename == "") and (options.inFilename == ""))):
     if (options.sampleSize < 0):
         print "please enter a positive number as the amount of vertices"
@@ -611,16 +586,17 @@ if ((options.sampleSize <> 0) and ((options.dimacsFilename == "") and (options.i
         print '...writing to file...'
         filename = options.outFilename
         writeFile(myMirrAdj, filename)
-        writeFile(clqs, filename+'.cliques')
+        writeFile(clqs, filename + '.cliques')
         print 'written to file: ', filename
-    #showArray(myMirrAdj)
 
+# Ein DIMACS-Graph soll untersucht werden
 if ((options.sampleSize == 0) and ((options.dimacsFilename <> "") and (options.inFilename == ""))):
     filename = options.dimacsFilename
+    print 'reading array from', filename, '...'
     myAdj = read_DIMACS_graph(filename)
     myMirrAdj = mirror(myAdj)
     if (not sizeOk(myMirrAdj)):
-        print "size of network must be between 10 and 20000"
+        print "size of network must be between 10 and 22000"
         exit(-1)   
     if (options.outFilename <> ""):
         print '...writing to file...'
@@ -628,90 +604,42 @@ if ((options.sampleSize == 0) and ((options.dimacsFilename <> "") and (options.i
         writeFile(myMirrAdj, filename)
         print 'written to file: ', filename
 
+# Ein CSV-File soll untersucht werden
 if ((options.sampleSize == 0) and ((options.dimacsFilename == "") and (options.inFilename <> ""))):
     filename = options.inFilename
+    print 'reading array from', filename, '...'
     myMirrAdj = readFile(filename)
     if (not sizeOk(myMirrAdj)):
-        print "size of network must be between 10 and 20000"
+        print "size of network must be between 10 and 22000"
         exit(-1)  
     if (options.outFilename <> ""):
         filename = options.outFilename
         writeFile(myMirrAdj, filename)
         print 'written to file: ', filename
 
-logging.basicConfig(filename='myPythonLog', filemode='w', level=logging.DEBUG, format='%(asctime)s %(message)s')
+logging.basicConfig(filename='MNTS_EDG.log', filemode='w', level=logging.DEBUG, format='%(asctime)s %(message)s')
 logging.info('***  START ***')
-
-
-'''
-iter = 6700
-depth = 20
-filename = 'c-fat500-5.clq'
-
-
-#DIMACS Tests 
-myAdj = read_DIMACS_graph(filename)
-myMirrAdj = mirror(myAdj)
-#writeFile(myAdj, 'brock200_1.csv')
-print 'Read DIMACS Test File - Nodes', myMirrAdj.shape[0]
-#print 'Read DIMACS Test File - Adj', showArray(myMirrAdj)
-#writeFile(myMirrAdj, "brock800_1.csv")
-'''
-'''
-#Tests mit selbst generiertem Array
-
-print '...creating array...'
-time1 = time.clock()
-myMirrAdj = createSampleEDG(1000)
-time2 = time.clock()
-tt = str(time2-time1)
-#print 'time for creating the array: ', tt
-logging.info('MAIN time to create: %s', tt)
-print '...created...'
-#writeFile(myMirrAdj, 'mySampleEDG.csv')
-
-iter = 2000
-depth = 20
-#showArray(myMirrAdj)
-'''
-
-    #print '....writing array to file...'
-    #time3 = time.clock()
-    #writeFile(myEDGArray, 'EDGArray1000.csv')
-    #print '....file written...'
-    #print '....loading file...'
-    #myEDGArray = readFile('EDGArray10000.csv')
-    #time4 = time.clock()
-    #tt = str(time4-time3)
-    #print 'Zeit fuer das Speichern des Arrays: ', tt
-    #logging.info('MAIN time to save: %s', tt)
-    #print '...file saved...'
-
 
 for multEDG in range(1):
 
     print '...calculating density (can take some minutes)...'
     time7 = time.clock()
-    #print 'Density: ', calcDensity(myMirrAdj)
+    print 'Density: ', calcDensity(myMirrAdj)
     time8 = time.clock()
-    tt = str(time8-time7)
+    tt = str(time8 - time7)
     print 'time to calculate density: ', tt
     print '...start finding cliques...'
     time5 = time.clock()
-    # Der erste Wert ist die max. Anzahl Iterationen;
-    # der zweite Wert ist die Suchtiefe
     myDIMACSClique = MultiTabuSearch(myMirrAdj, iter, depth, options.nrOfCliques)
     time6 = time.clock()
-    tt = str(time6-time5)
+    tt = str(time6 - time5)
     print 'time to find cliques: ', tt
-    logging.info('MAIN time to calculate: %s', tt)
-    #logging.info('MAIN Groesse der Clique: %s', myDIMACSClique.__len__())
+    logging.info('time to find cliques: %s', tt)
     myDIMACSClique.reverse()
     print '*** Clique - Weight - Iteration - Time - Size ***'
-    print 'The', myDIMACSClique.__len__(),'best Cliques: '
+    print 'The', myDIMACSClique.__len__(), 'best Cliques: '
     for clique in range(myDIMACSClique.__len__()):
-        print clique+1, ': ', myDIMACSClique[clique], myDIMACSClique[clique][0].__len__()
-        #logging.info('MAIN myDIMACSClique: %s', myDIMACSClique)
+        print clique + 1, ': ', myDIMACSClique[clique], myDIMACSClique[clique][0].__len__()
 
-    print 'the end'
-    logging.info('***  END ***')
+print 'the end'
+logging.info('***  END ***')
