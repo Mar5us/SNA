@@ -9,3 +9,4 @@ __pycache__/
 # Input data files (optional)
 input/*.clq
 input/
+output/
