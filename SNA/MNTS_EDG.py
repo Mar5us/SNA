@@ -19,6 +19,10 @@ import sys #standard module
 import optparse #standard module
 import pandas as pd
 
+# Constants
+MAX_ALLOWED_NETWORK_SIZE = 25000
+MIN_ALLOWED_NETWORK_SIZE = 10
+
 # Funktion: Liest einen DIMACS-Graphen ein. Die Funktion wurde von
 # http://www.dcc.fc.up.pt/~jpp/code/partition/graphtools.py uebernommen
 # und fuer diese Anwendung angepasst.
@@ -110,7 +114,7 @@ def showArray(myArr):
 # verarbeitet werden kann
 # Rueckgabewert: True oder False
 def sizeOk(myArr):
-    return ((myArr.shape[0] >= 10) and (myArr.shape[0] <= 22000))
+    return ((myArr.shape[0] >= MIN_ALLOWED_NETWORK_SIZE) and (myArr.shape[0] <= MAX_ALLOWED_NETWORK_SIZE))
 
 # Funktion: Liest ein Array von einem CSV-File
 # Rueckgabewert: Das eingelesene Array mit dem Filenamen filename
@@ -122,12 +126,80 @@ def readFile(filename):
         exit(-1) 
     return newArr
 
+# Funktion: Liest ein Sparse-File und rekonstruiert die Adjacency-Matrix
+def readSparseFile(filename, nrOfActors):
+    """Read sparse format file and reconstruct adjacency matrix"""
+    try:
+        # Read sparse data
+        sparse_data = np.genfromtxt(filename, delimiter=',', skip_header=1, dtype=int)
+        
+        # Initialize empty adjacency matrix
+        myArr = np.zeros((nrOfActors, nrOfActors), dtype=int)
+        
+        # Fill with non-zero connections
+        for row in sparse_data:
+            source, target, weight = row
+            if source < nrOfActors and target < nrOfActors:
+                myArr[source][target] = weight
+        
+        print(f"Loaded sparse matrix: {len(sparse_data)} connections for {nrOfActors} nodes")
+        return myArr
+        
+    except IOError:
+        print("could not open sparse file", filename)
+        exit(-1)
+    except Exception as e:
+        print("error reading sparse file:", e)
+        exit(-1)
+
 # Funktion: Schreibt ein Array in ein CSV-File
 def writeFile(myArr, filename):
+    """Write full adjacency matrix to CSV (for smaller networks)"""
     f = open(filename, "w", newline='')
     myWriter = csv.writer(f, delimiter=';')
     myWriter.writerows(myArr)
     f.close()
+
+# Funktion: Schreibt ein Array in ein effizientes Sparse-Format
+def writeSparseFile(myArr, filename):
+    """Write adjacency matrix in sparse format (source,target,weight) - OPTIMIZED"""
+    f = open(filename, "w", newline='')
+    myWriter = csv.writer(f, delimiter=',')
+    myWriter.writerow(['source', 'target', 'weight'])  # Header
+    
+    nrOfActors = myArr.shape[0]
+    connections_written = 0
+    
+    # Use numpy's nonzero to find connections efficiently
+    sources, targets = np.nonzero(myArr)
+    
+    # Write only non-zero connections
+    for i in range(len(sources)):
+        source, target = sources[i], targets[i]
+        weight = myArr[source][target]
+        if weight > 0:  # Double-check (should always be true)
+            myWriter.writerow([source, target, weight])
+            connections_written += 1
+    
+    f.close()
+    print(f"Sparse format written: {filename} ({connections_written} connections, saved {nrOfActors*nrOfActors - connections_written} zero entries)")
+
+# Funktion: Waehlt automatisch das beste Speicherformat basierend auf Netzwerkgroesse
+def writeSmartFile(myArr, filename, threshold=5000):
+    """Automatically choose best format based on network size"""
+    nrOfActors = myArr.shape[0]
+    
+    if nrOfActors > threshold:
+        # Use sparse format for large networks
+        sparse_filename = filename.replace('.csv', '_sparse.csv')
+        writeSparseFile(myArr, sparse_filename)
+        print(f"Large network ({nrOfActors} nodes) - used sparse format to save disk space")
+        return sparse_filename
+    else:
+        # Use dense format for smaller networks
+        writeFile(myArr, filename)
+        print(f"Small/medium network ({nrOfActors} nodes) - used standard CSV format")
+        return filename
 
 # Funktion: Spiegelt ein Array. Wird gebraucht, um Cliquen in ungerichteten Graphen 
 # (z.B. in DIMACS Graphen) zu finden
@@ -600,12 +672,13 @@ def MultiTabuSearch(myArr, iterMax, searchDepth, nrOfCliques):
 
 parser = optparse.OptionParser(version="%prog 1.0")
 parser.add_option("-f", "--dimacs", dest="dimacsFilename", default="", help="DIMACS file to load", metavar="FILE")
-parser.add_option("-s", "--sample", dest="sampleSize", type="int", default=0, help="creates a sample network of size SAMPLESIZE with cliques - minimum size = 10; maximum size = 22000")
+parser.add_option("-s", "--sample", dest="sampleSize", type="int", default=0, help="creates a sample network of size SAMPLESIZE with cliques - minimum size = 10; maximum size = " + str(MAX_ALLOWED_NETWORK_SIZE))
 parser.add_option("-i", "--iterations", dest="iter", type="int", default=0, help="defines the number of iterations")
 parser.add_option("-d", "--depth", dest="depth", type="int", default= -1, help="defines the search depth (0 means no local search)")
 parser.add_option("-o", "--out", dest="outFilename", default="", help="name of the output file (adjacency matrix) in csv format")
 parser.add_option("-c", "--in", dest="inFilename", default="", help="name of the input file (adjacency matrix) in csv format")
 parser.add_option("-n", "--cliques", dest="nrOfCliques", type="int", default=10, help="number of cliques to find - default is 10")
+parser.add_option("--size", dest="networkSize", type="int", default=0, help="network size for reading sparse files (required for sparse format)")
 (options, args) = parser.parse_args()
 
 print('options: ', options)
@@ -663,10 +736,10 @@ if options.sampleSize != 0 and (options.dimacsFilename == "" and options.inFilen
     if options.sampleSize < 0:
         print("please enter a positive number as the amount of vertices")
         exit(-1)
-    if options.sampleSize > 22000:
+    if options.sampleSize > MAX_ALLOWED_NETWORK_SIZE:
         print("not enough memory for such a large network")
         exit(-1)
-    if options.sampleSize < 10:
+    if options.sampleSize < MIN_ALLOWED_NETWORK_SIZE:
         print("minimum number of acteurs is 10")
         exit(-1) 
     print('...creating array...')
@@ -675,9 +748,9 @@ if options.sampleSize != 0 and (options.dimacsFilename == "" and options.inFilen
     if options.outFilename != "":
         print("...writing to file...")
         filename = options.outFilename
-        writeFile(myMirrAdj, filename)
+        actual_filename = writeSmartFile(myMirrAdj, filename)
         writeFile(clqs, filename + '.cliques')
-        print('written to file: ', filename)
+        print('written to file: ', actual_filename)
 
 # Ein DIMACS-Graph soll untersucht werden
 if options.sampleSize == 0 and (options.dimacsFilename != "" and options.inFilename == ""):
@@ -686,26 +759,34 @@ if options.sampleSize == 0 and (options.dimacsFilename != "" and options.inFilen
     myAdj = read_DIMACS_graph(filename)
     myMirrAdj = mirror(myAdj)
     if not sizeOk(myMirrAdj):
-        print("size of network must be between 10 and 22000")
+        print("size of network must be between " + str(MIN_ALLOWED_NETWORK_SIZE) + " and " + str(MAX_ALLOWED_NETWORK_SIZE))
         exit(-1)   
     if options.outFilename != "":
         print("...writing to file...")
         filename = options.outFilename
-        writeFile(myMirrAdj, filename)
-        print('written to file: ', filename)
+        actual_filename = writeSmartFile(myMirrAdj, filename)
+        print('written to file: ', actual_filename)
 
 # Ein CSV-File soll untersucht werden
 if options.sampleSize == 0 and (options.dimacsFilename == "" and options.inFilename != ""):
     filename = options.inFilename
     print("reading array from", filename, "...")
-    myMirrAdj = readFile_fast(filename)    
+    
+    # Check if it's a sparse file
+    if filename.endswith('_sparse.csv'):
+        if options.networkSize == 0:
+            print("Error: Sparse files require --size parameter to specify network size")
+            exit(-1)
+        myMirrAdj = readSparseFile(filename, options.networkSize)
+    else:
+        myMirrAdj = readFile_fast(filename)    
     if not sizeOk(myMirrAdj):
-        print("size of network must be between 10 and 22000")
+        print("size of network must be between " + str(MIN_ALLOWED_NETWORK_SIZE) + " and " + str(MAX_ALLOWED_NETWORK_SIZE))
         exit(-1)  
     if options.outFilename != "":
         filename = options.outFilename
-        writeFile(myMirrAdj, filename)
-        print('written to file: ', filename)
+        actual_filename = writeSmartFile(myMirrAdj, filename)
+        print('written to file: ', actual_filename)
 
 logging.basicConfig(filename='MNTS_EDG.log', filemode='w', level=logging.DEBUG, format='%(asctime)s %(message)s')
 logging.info('***  START ***')
