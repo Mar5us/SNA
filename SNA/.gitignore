@@ -1,0 +1,11 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+ 
+# Log files
+*.log
+ 
+# Input data files (optional)
+input/*.clq
+input/
